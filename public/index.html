@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PodStream — Container Cloud Console</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/vendor/xtermcss/xterm.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="brand"><span class="brand-mark">⚡</span> PodStream</div>
+    <nav id="nav">
+      <a href="#/dashboard" data-page="dashboard">Dashboard</a>
+      <a href="#/instances" data-page="instances">Instances</a>
+      <a href="#/deploy" data-page="deploy">Deploy</a>
+      <a href="#/labs" data-page="labs">Labs</a>
+      <a href="#/images" data-page="images">Images</a>
+      <a href="#/marketplace" data-page="marketplace">Marketplace</a>
+    </nav>
+    <div class="side-foot">
+      <span id="podman-dot" class="dot"></span>
+      <span id="podman-ver" class="muted">podman…</span>
+    </div>
+  </aside>
+
+  <main>
+    <div id="page-head">
+      <h1 id="page-title">Dashboard</h1>
+      <span id="page-sub" class="muted"></span>
+    </div>
+    <div id="page-content"></div>
+
+    <section id="labs-section" class="hidden">
+      <h2 class="section">Labs (pods + networking)</h2>
+      <div class="lab-bar">
+        <label>Desktop for the first pod
+          <select id="lab-desktop"></select>
+        </label>
+        <button id="lab-create" class="primary">Create lab</button>
+      </div>
+      <p class="muted" style="font-size:12.5px">
+        Each lab is an isolated bridge network: every pod gets its own IP on the lab subnet,
+        members resolve each other by name, and targets are never exposed to the host.
+        Add more pods and vulnerable targets to a lab to build your engagement network.
+      </p>
+      <div id="lab-list" class="lab-list"></div>
+      <p id="no-labs" class="muted">No labs yet — create one, then add desktop pods and targets.</p>
+    </section>
+  </main>
+
+  <button id="restore-pill" class="hidden">🖥 <span id="restore-count">0</span> open — restore</button>
+
+  <div id="viewer" class="hidden">
+    <div id="viewer-bar">
+      <div id="viewer-tabs"></div>
+      <span class="spacer"></span>
+      <button id="viewer-min" title="Hide the viewer — sessions keep running">⌄ Minimize</button>
+      <button id="btn-paste" title="Send host clipboard to the remote desktop">Paste</button>
+      <button id="btn-cad" title="Send Ctrl+Alt+Del">Ctrl+Alt+Del</button>
+      <button id="btn-scale" title="Toggle viewport scaling">Scale: on</button>
+      <button id="btn-fullscreen">Fullscreen</button>
+      <button id="btn-disconnect" class="danger" title="Close the active tab">Close tab</button>
+    </div>
+    <div id="viewer-stack"></div>
+  </div>
+
+  <script>
+    window.addEventListener('error', (e) => {
+      document.body.innerHTML = `<pre style="color:#b00;background:#fff;padding:20px;position:fixed;z-index:999;font-size:13px">JS ERROR: ${e.message}\n${e.filename}:${e.lineno}</pre>`;
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      document.body.innerHTML = `<pre style="color:#b00;background:#fff;padding:20px;position:fixed;z-index:999;font-size:13px">PROMISE REJECTION: ${(e.reason && (e.reason.stack || e.reason.message)) || e.reason}</pre>`;
+    });
+  </script>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

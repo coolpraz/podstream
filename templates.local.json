@@ -1,0 +1,94 @@
+{
+  "removedIds": [
+    "xfce"
+  ],
+  "templates": [
+    {
+      "id": "xfce-firefox",
+      "name": "Firefox",
+      "icon": "\ud83e\udd8a",
+      "description": "Firefox on an XFCE desktop",
+      "image": "docker.io/accetto/ubuntu-vnc-xfce-firefox:latest",
+      "displayPort": 5901,
+      "resolution": "1600x900",
+      "vncPasswordEnv": "VNC_PW",
+      "vncPassword": "headless",
+      "env": {}
+    },
+    {
+      "id": "xfce-gimp",
+      "name": "GIMP",
+      "icon": "\ud83d\udd8c\ufe0f",
+      "description": "GIMP image editor on XFCE",
+      "image": "docker.io/accetto/ubuntu-vnc-xfce-gimp:latest",
+      "displayPort": 5901,
+      "resolution": "1600x900",
+      "vncPasswordEnv": "VNC_PW",
+      "vncPassword": "headless",
+      "env": {}
+    },
+    {
+      "id": "example-image",
+      "name": "Custom image",
+      "icon": "\ud83d\udce6",
+      "description": "Built from ./example-image (podman build -t podstream-example ./example-image)",
+      "image": "localhost/podstream-example:latest",
+      "displayPort": 5901,
+      "resolution": "1440x900",
+      "vncPasswordEnv": "VNC_PW",
+      "vncPassword": null,
+      "env": {}
+    },
+    {
+      "id": "kali-full",
+      "name": "Kali Linux",
+      "icon": "\ud83d\udc09",
+      "description": "Kali XFCE \u2014 full GUI, minimal tools (~3 GB image). Add toolsets in-session: sudo apt install kali-linux-default",
+      "image": "localhost/podstream-kali-full:latest",
+      "displayPort": 5901,
+      "resolution": "1600x900",
+      "hostname": "kali",
+      "network": "slirp4netns",
+      "vncPasswordEnv": "VNC_PW",
+      "vncPassword": null,
+      "env": {},
+      "termUser": "kali",
+      "cockpit": true,
+      "pullRef": "quay.io/podstream/podstream-kali:latest"
+    },
+    {
+      "id": "parrot-htb",
+      "name": "Parrot OS HTB",
+      "icon": "\ud83e\udd9c",
+      "description": "Parrot HTB / PwnBox edition \u2014 HTB theme, icons, panel (~5 GB image). Add tools in-session: sudo apt install parrot-tools-full",
+      "image": "localhost/podstream-parrot-htb:latest",
+      "displayPort": 5901,
+      "resolution": "1600x900",
+      "hostname": "pwnbox",
+      "network": "slirp4netns",
+      "vncPasswordEnv": "VNC_PW",
+      "vncPassword": null,
+      "env": {},
+      "termUser": "user",
+      "cockpit": true,
+      "pullRef": "quay.io/podstream/podstream-parrot-htb:latest"
+    },
+    {
+      "id": "blackarch",
+      "name": "BlackArch Linux",
+      "icon": "\ud83c\udff4",
+      "description": "BlackArch live-USB-style UI (Openbox + tint2) \u2014 full GUI, minimal tools (~2.1 GB image). All 2,855 tools in-session: pacman -S blackarch-webapp \u2026",
+      "image": "localhost/podstream-blackarch:latest",
+      "displayPort": 5901,
+      "resolution": "1600x900",
+      "hostname": "blackarch",
+      "network": "slirp4netns",
+      "vncPasswordEnv": "VNC_PW",
+      "vncPassword": null,
+      "env": {},
+      "termUser": "user",
+      "cockpit": true,
+      "pullRef": "quay.io/podstream/podstream-blackarch:latest"
+    }
+  ]
+}

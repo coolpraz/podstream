@@ -1,0 +1,30 @@
+# A minimal self-built "session image" for PodStream: an X11 desktop
+# exposed over VNC on port 5901.
+#
+#   podman build -t podstream-example ./example-image
+#
+# Environment:
+#   VNC_RESOLUTION  e.g. 1440x900   (default 1440x900)
+#   VNC_PW          VNC password    (default headless)
+FROM debian:12
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb \
+        x11vnc \
+        dbus-x11 \
+        openbox \
+        xterm \
+        firefox-esr \
+        fonts-dejavu \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+ENV VNC_RESOLUTION=1440x900
+ENV VNC_PW=headless
+
+EXPOSE 5901
+CMD ["/start.sh"]

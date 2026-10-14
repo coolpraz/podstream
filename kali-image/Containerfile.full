@@ -1,0 +1,102 @@
+# PodStream session image: Kali Linux XFCE desktop — full GUI, minimal tools.
+#
+#   podman build -f kali-image/Containerfile.full -t podstream-kali-full kali-image
+#
+# Kali's complete desktop experience (Xfce, kali-defaults theming, wallpapers,
+# menus, the kali@kali zsh prompt) with no bulk tool metas — install any toolset
+# in-session instead, e.g.:
+#   sudo apt update && sudo apt install kali-linux-default     # standard toolset
+#   sudo apt install kali-linux-large                          # expanded toolset
+#   sudo apt install metasploit-framework burpsuite …          # individual tools
+#
+# Environment:
+#   VNC_RESOLUTION  e.g. 1600x900   (default 1600x900)
+#   VNC_PW          VNC password    (default headless)
+FROM docker.io/kalilinux/kali-rolling:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# retry flaky mirrors; prefer the reliable kali.download CDN (http.kali.org is a
+# redirector that intermittently serves broken mirrors)
+RUN printf 'Acquire::Retries "8";\n' > /etc/apt/apt.conf.d/80-retries \
+    && printf 'deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware\ndeb http://http.kali.org/kali kali-rolling main contrib non-free non-free-firmware\n' > /etc/apt/sources.list
+
+RUN apt-get update && (apt-get install -y --no-install-recommends \
+        kali-desktop-xfce \
+        zsh \
+        xvfb \
+        x11vnc \
+        dbus-x11 \
+        firefox-esr \
+        sudo \
+        git \
+        curl \
+    || (sleep 15 && apt-get update && apt-get install -y --no-install-recommends --fix-missing \
+        kali-desktop-xfce zsh xvfb x11vnc dbus-x11 firefox-esr sudo git curl)) \
+    && rm -rf /var/lib/apt/lists/*
+
+# Cockpit web console (proxied by PodStream at /cockpit/<id>/) — its own step so
+# the desktop fallback above can never silently drop it.
+RUN apt-get update && (apt-get install -y --no-install-recommends cockpit-ws cockpit-bridge \
+    || (sleep 15 && apt-get update && apt-get install -y --no-install-recommends --fix-missing cockpit-ws cockpit-bridge)) \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Most-used hacking tools (add more in-session: sudo apt install kali-linux-*)
+RUN apt-get update && (apt-get install -y --no-install-recommends \
+        metasploit-framework \
+        wireshark \
+        burpsuite \
+        exploitdb \
+        seclists \
+        nmap \
+        sqlmap \
+        nikto \
+        hydra \
+        john \
+        hashcat \
+        tcpdump \
+        aircrack-ng \
+        gobuster \
+        feroxbuster \
+        nuclei \
+        netexec \
+        evil-winrm \
+        enum4linux-ng \
+        smbmap \
+        python3-impacket \
+    || (sleep 15 && apt-get update && apt-get install -y --no-install-recommends --fix-missing \
+        metasploit-framework wireshark burpsuite exploitdb seclists nmap sqlmap nikto hydra \
+        john hashcat tcpdump aircrack-ng gobuster feroxbuster nuclei netexec evil-winrm \
+        enum4linux-ng smbmap python3-impacket)) \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Baseline network tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        netcat-openbsd traceroute mtr-tiny dnsutils masscan \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Default Kali-style user: zsh with kali's prompt from /etc/skel, passwordless sudo
+RUN useradd -m -s /usr/bin/zsh -u 1000 kali \
+    && echo 'kali:kali' | chpasswd \
+    && echo 'kali ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/kali \
+    && chmod 440 /etc/sudoers.d/kali
+
+# Fix the wallpaper defaults for Xvfb's monitor naming (see file header)
+COPY kali-xfce4-desktop.xml /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
+
+COPY start.sh /start.sh
+COPY start-desktop.sh /start-desktop.sh
+RUN chmod +x /start.sh /start-desktop.sh
+
+ENV VNC_RESOLUTION=1600x900
+ENV VNC_PW=headless
+ENV DESKTOP_USER=kali
+
+# Most of the Kali toolset (expanded metapackage — ~13 GB installed)
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends kali-linux-large \
+        || (sleep 15 && apt-get update && apt-get install -y --no-install-recommends --fix-missing kali-linux-large)) \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+EXPOSE 5901
+CMD ["/start.sh"]

@@ -1,0 +1,73 @@
+# PodStream session image: Parrot OS with its real MATE desktop + common
+# pentest tools, exposed over VNC on port 5901.
+#
+#   podman build -t podstream-parrot ./parrot-image
+#
+# Notes:
+#   - parrot-core + echo-themes + ara/maia icons + parrot-menu/wallpapers give the
+#     actual ParrotOS look (Parrot's own MATE settings, panel layout, prompt from
+#     /etc/skel). Debian's generic mate-desktop-environment-core alone renders a
+#     broken panel (missing BriskMenu) with zero Parrot branding.
+#   - The desktop runs as user "user" (Parrot convention, bash, sudo NOPASSWD).
+#     Set the container hostname to "parrot" via the template "hostname" field.
+#
+# Environment:
+#   VNC_RESOLUTION  e.g. 1600x900   (default 1600x900)
+#   VNC_PW          VNC password    (default headless)
+FROM docker.io/parrotsec/core:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        parrot-core \
+        parrot-interface-common \
+        echo-themes \
+        ara-icon-theme \
+        maia-icon-theme \
+        parrot-menu \
+        parrot-wallpapers \
+        breeze-cursor-theme \
+        mate-applet-brisk-menu \
+        mate-applets \
+        mate-power-manager \
+        mate-desktop-environment-core \
+        mate-terminal \
+        dbus-x11 \
+        xvfb \
+        x11vnc \
+        firefox-esr \
+        sudo \
+        git \
+        curl \
+        nmap \
+        sqlmap \
+        hydra \
+        john \
+        netcat-openbsd \
+        dnsutils \
+        whois \
+    && rm -rf /var/lib/apt/lists/*
+
+# Parrot's default user (bash, parrot prompt from /etc/skel, passwordless sudo).
+# Pre-create the standard XDG folders and disable xdg-user-dirs so the
+# "Update standard folders to current language?" dialog never appears on login.
+RUN useradd -m -s /bin/bash -u 1000 user \
+    && echo 'user:user' | chpasswd \
+    && echo 'user ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/user \
+    && chmod 440 /etc/sudoers.d/user \
+    && for d in Desktop Documents Downloads Music Pictures Public Templates Videos; do mkdir -p /home/user/$d; done \
+    && mkdir -p /home/user/.config \
+    && printf 'enabled=False\n' > /home/user/.config/user-dirs.conf \
+    && printf '[XDG_DESKTOP_DIR="$HOME/Desktop"]\n[XDG_DOCUMENTS_DIR="$HOME/Documents"]\n[XDG_DOWNLOAD_DIR="$HOME/Downloads"]\n[XDG_MUSIC_DIR="$HOME/Music"]\n[XDG_PICTURES_DIR="$HOME/Pictures"]\n[XDG_PUBLICSHARE_DIR="$HOME/Public"]\n[XDG_TEMPLATES_DIR="$HOME/Templates"]\n[XDG_VIDEOS_DIR="$HOME/Videos"]\n' > /home/user/.config/user-dirs.dirs \
+    && chown -R user:user /home/user
+
+COPY start.sh /start.sh
+COPY start-desktop.sh /start-desktop.sh
+RUN chmod +x /start.sh /start-desktop.sh
+
+ENV VNC_RESOLUTION=1600x900
+ENV VNC_PW=headless
+ENV DESKTOP_USER=user
+
+EXPOSE 5901
+CMD ["/start.sh"]

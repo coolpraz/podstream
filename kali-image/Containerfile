@@ -1,0 +1,62 @@
+# PodStream session image: Kali Linux (rolling) with the standard XFCE desktop
+# and a base set of tools, exposed over VNC on port 5901.
+#
+#   podman build -t podstream-kali ./kali-image
+#
+# Notes:
+#   - kasmweb/kali-*-desktop images do NOT work here: their KasmVNC server is not
+#     RFB-compliant, so noVNC cannot talk to it. Hence this self-built image.
+#   - The desktop runs as user "kali" (like a real Kali install: zsh, sudo NOPASSWD,
+#     kali-defaults theming/menu/wallpapers). Set container hostname to "kali" via
+#     the template's "hostname" field so the prompt reads kali@kali.
+#   - kali-xfce4-desktop.xml patches xfconf wallpaper defaults for Xvfb (Kali's
+#     stock defaults only cover monitor0..4; Xvfb's output is named "screen").
+#
+# Environment:
+#   VNC_RESOLUTION  e.g. 1600x900   (default 1600x900)
+#   VNC_PW          VNC password    (default headless)
+FROM docker.io/kalilinux/kali-rolling:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        kali-desktop-xfce \
+        zsh \
+        xvfb \
+        x11vnc \
+        dbus-x11 \
+        firefox-esr \
+        sudo \
+        git \
+        curl \
+        nmap \
+        sqlmap \
+        hydra \
+        john \
+        hashcat \
+        netcat-openbsd \
+        dnsutils \
+        whois \
+        zip \
+        unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Default Kali-style user: zsh with kali's prompt from /etc/skel, passwordless sudo
+RUN useradd -m -s /usr/bin/zsh -u 1000 kali \
+    && echo 'kali:kali' | chpasswd \
+    && echo 'kali ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/kali \
+    && chmod 440 /etc/sudoers.d/kali
+
+# Fix the wallpaper defaults for Xvfb's monitor naming (see file header)
+COPY kali-xfce4-desktop.xml /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
+
+COPY start.sh /start.sh
+COPY start-desktop.sh /start-desktop.sh
+RUN chmod +x /start.sh /start-desktop.sh
+
+ENV VNC_RESOLUTION=1600x900
+ENV VNC_PW=headless
+ENV DESKTOP_USER=kali
+
+EXPOSE 5901
+CMD ["/start.sh"]

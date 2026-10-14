@@ -1,0 +1,92 @@
+# PodStream session image: Parrot OS HackTheBox edition — full MATE GUI with
+# HTB theming, minimal preinstalled tools (add toolsets in-session).
+#
+#   podman build -f parrot-image/Containerfile.full -t podstream-parrot-htb parrot-image
+#
+# Environment:
+#   VNC_RESOLUTION  e.g. 1600x900   (default 1600x900)
+#   VNC_PW          VNC password    (default headless)
+FROM docker.io/parrotsec/core:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN printf 'Acquire::Retries "8";\n' > /etc/apt/apt.conf.d/80-retries
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        parrot-core \
+        parrot-interface-common \
+        echo-themes \
+        ara-icon-theme \
+        maia-icon-theme \
+        parrot-menu \
+        parrot-wallpapers \
+        breeze-cursor-theme \
+        mate-applet-brisk-menu \
+        mate-applets \
+        mate-power-manager \
+        mate-desktop-environment-core \
+        mate-terminal \
+        dbus-x11 \
+        xvfb \
+        x11vnc \
+        firefox-esr \
+        sudo \
+        git \
+        curl \
+        cockpit-ws \
+        cockpit-bridge \
+    && rm -rf /var/lib/apt/lists/*
+
+# Most-used hacking tools (add more in-session: sudo apt install parrot-tools-full)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        metasploit-framework \
+        wireshark \
+        hashcat \
+        bettercap \
+        binwalk \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+RUN useradd -m -s /bin/bash -u 1000 user \
+    && echo 'user:user' | chpasswd \
+    && echo 'user ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/user \
+    && chmod 440 /etc/sudoers.d/user \
+    && for d in Desktop Documents Downloads Music Pictures Public Templates Videos; do mkdir -p /home/user/$d; done \
+    && mkdir -p /home/user/.config \
+    && printf 'enabled=False\n' > /home/user/.config/user-dirs.conf \
+    && printf '[XDG_DESKTOP_DIR="$HOME/Desktop"]\n[XDG_DOCUMENTS_DIR="$HOME/Documents"]\n[XDG_DOWNLOAD_DIR="$HOME/Downloads"]\n[XDG_MUSIC_DIR="$HOME/Music"]\n[XDG_PICTURES_DIR="$HOME/Pictures"]\n[XDG_PUBLICSHARE_DIR="$HOME/Public"]\n[XDG_TEMPLATES_DIR="$HOME/Templates"]\n[XDG_VIDEOS_DIR="$HOME/Videos"]\n' > /home/user/.config/user-dirs.dirs \
+    && chown -R user:user /home/user
+
+COPY start.sh /start.sh
+COPY start-desktop.sh /start-desktop.sh
+RUN chmod +x /start.sh /start-desktop.sh
+
+ENV VNC_RESOLUTION=1600x900
+ENV VNC_PW=headless
+ENV DESKTOP_USER=user
+
+# HackTheBox (PwnBox) edition: HTB configs, icons and theme activation
+# (parrot-core-htb ships the HTB dconf settings staged but INACTIVE — activate
+# them here), plus the panel's editor launchers. No bulk tool metas — install
+# toolsets in-session, e.g. `sudo apt install parrot-tools-full`.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends parrot-core-htb hackthebox-icon-theme dconf-cli pluma geany \
+    && cp /usr/lib/parrot-skel/etc/dconf-htb/db/local.d/htb-config /etc/dconf/db/local.d/zzz-htb-config \
+    && mkdir -p /etc/dconf/profile \
+    && printf "user-db:user\nsystem-db:local\n" > /etc/dconf/profile/user \
+    && printf "[system/proxy]\nmode='none'\n" > /etc/dconf/db/local.d/zzzz-podstream-proxy \
+    && dconf update \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Baseline network tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        netcat-openbsd traceroute mtr-tiny masscan \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Most of the Parrot toolset (full pentest environment — ~20 GB installed)
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends parrot-tools-full \
+        || (sleep 15 && apt-get update && apt-get install -y --no-install-recommends --fix-missing parrot-tools-full)) \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+EXPOSE 5901
+CMD ["/start.sh"]

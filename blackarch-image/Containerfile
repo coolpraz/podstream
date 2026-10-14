@@ -1,0 +1,172 @@
+# PodStream session image: BlackArch Linux — live-USB-style Openbox UI
+# (black/red theme, tint2 panel, BlackArch root menu with tool categories,
+# conky), exposed over VNC on 5901. Full GUI, minimal preinstalled tools.
+#
+#   podman build -t podstream-blackarch blackarch-image
+#
+# Notes:
+#   - This replicates the bootable BlackArch live environment: Openbox + tint2 +
+#     conky + feh wallpaper, with the blackarch-config-openbox/gtk/icons setups
+#     and blackarch-menus tool categories in the right-click menu.
+#   - Tool PACKAGES are not preinstalled — all 2,855 are one command away
+#     in-session:
+#       pacman -S blackarch-webapp blackarch-forensic …   (category groups)
+#       pacman -S metasploit nmap …                       (individual tools)
+#     Groups are organizational views — installing a group just fills its menu.
+#   - ML/GPU/Java/Wine hogs (python-pytorch, cuda, jdk-openjdk, rust, wine…) are
+#     --assume-installed to skip their multi-GB cascades if a pulled tool needs them.
+#   - Desktop runs as user "user" with BlackArch configs (bash prompt, GTK/urxvt
+#     theming). Set hostname "blackarch" via the template field.
+#
+# Environment:
+#   VNC_RESOLUTION  e.g. 1600x900   (default 1600x900)
+#   VNC_PW          VNC password    (default headless)
+FROM docker.io/blackarchlinux/blackarch:latest
+
+# pacman hardening: no low-speed aborts (geo mirrors stall), kernel.org primary
+RUN sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 5/' /etc/pacman.conf \
+    && sed -i '/^DisableDownloadTimeout$/d' /etc/pacman.conf \
+    && printf 'Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch\nServer = https://geo.mirror.pkgbuild.com/$repo/os/$arch\nServer = https://mirror.rackspace.com/archlinux/$repo/os/$arch\nServer = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
+
+# Live-USB-style desktop: Openbox + tint2 + conky + feh, theming + tool menus
+RUN pacman -Syu --noconfirm --needed \
+        xorg-server-xvfb \
+        xorg-xdpyinfo \
+        xorg-xrdb \
+        x11vnc \
+        dbus \
+        openbox \
+        tint2 \
+        feh \
+        conky \
+        picom \
+        rxvt-unicode \
+        firefox \
+        sudo \
+        git \
+        curl \
+        tmux \
+        vim \
+        cockpit \
+        blackarch-config-openbox \
+        blackarch-config-gtk \
+        blackarch-config-icons \
+        blackarch-config-x11 \
+        blackarch-config-bash \
+        blackarch-menus \
+        blackarch-wallpaper \
+    && pacman -Scc --noconfirm
+
+# Most-used hacking tools (add more in-session: pacman -S blackarch-webapp …)
+RUN pacman -Syu --noconfirm --needed \
+        --assume-installed wine --assume-installed wine_gecko \
+        --assume-installed python-pytorch --assume-installed nvidia-cudnn \
+        --assume-installed cuda --assume-installed jdk-openjdk \
+        --assume-installed rust \
+        metasploit nmap sqlmap hydra john hashcat wireshark-qt tcpdump \
+        aircrack-ng gobuster feroxbuster nuclei nikto netexec evil-winrm \
+        enum4linux-ng smbmap impacket exploitdb seclists binwalk bettercap \
+        mitmproxy responder \
+    && pacman -Scc --noconfirm
+
+# Baseline network tools
+RUN pacman -Syu --noconfirm --needed openbsd-netcat traceroute bind mtr masscan \
+    && pacman -Scc --noconfirm
+
+# Default user (BlackArch bash config from /etc/skel, passwordless sudo).
+# Must run AFTER the config packages so -m copies their skel files.
+RUN useradd -m -s /bin/bash -u 1000 user \
+    && echo 'user:user' | chpasswd \
+    && echo 'user ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/user \
+    && chmod 440 /etc/sudoers.d/user
+
+COPY start.sh /start.sh
+COPY start-desktop.sh /start-desktop.sh
+RUN chmod +x /start.sh /start-desktop.sh
+
+ENV VNC_RESOLUTION=1600x900
+ENV VNC_PW=headless
+ENV DESKTOP_USER=user
+
+# The complete BlackArch toolset (2,855 tools — ~26 GB installed).
+# impacket / impacket-ba are excluded from the member list AND assumed-installed:
+# the two providers conflict with each other and abort the whole transaction.
+RUN pacman -Sy --noconfirm >/dev/null 2>&1 || true; \
+    pacman -Syu --noconfirm --needed \
+        --ignore impacket,impacket-ba,harpoon,pycrtsh,consolemd \
+        --assume-installed impacket,impacket-ba \
+        --assume-installed wine --assume-installed wine_gecko \
+        --assume-installed python-pytorch --assume-installed nvidia-cudnn \
+        --assume-installed cuda --assume-installed jdk-openjdk \
+        --assume-installed rust \
+        blackarch-ai blackarch-anti-forensic blackarch-automation blackarch-automobile \
+        blackarch-backdoor blackarch-binary blackarch-bluetooth blackarch-code-audit \
+    && pacman -Scc --noconfirm
+
+# Chunk 2: crypto / defensive / wireless tool categories
+RUN pacman -Syu --noconfirm --needed \
+        --ignore impacket,impacket-ba,harpoon,pycrtsh,consolemd \
+        --assume-installed impacket,impacket-ba \
+        --assume-installed wine --assume-installed wine_gecko \
+        --assume-installed python-pytorch --assume-installed nvidia-cudnn \
+        --assume-installed cuda --assume-installed jdk-openjdk \
+        --assume-installed rust \
+        blackarch-cracker blackarch-crypto blackarch-database blackarch-debugger \
+        blackarch-decompiler blackarch-defensive blackarch-disassembler \
+        blackarch-dos blackarch-drone \
+    && pacman -Scc --noconfirm
+
+# Chunk 3: exploitation / forensics / fuzzing categories
+RUN pacman -Syu --noconfirm --needed \
+        --ignore impacket,impacket-ba,harpoon,pycrtsh,consolemd \
+        --assume-installed impacket,impacket-ba \
+        --assume-installed wine --assume-installed wine_gecko \
+        --assume-installed python-pytorch --assume-installed nvidia-cudnn \
+        --assume-installed cuda --assume-installed jdk-openjdk \
+        --assume-installed rust \
+        blackarch-exploitation blackarch-fingerprint blackarch-firmware \
+        blackarch-forensic blackarch-fuzzer blackarch-gpu blackarch-hardware \
+        blackarch-honeypot blackarch-ids \
+    && pacman -Scc --noconfirm
+
+# Chunk 4: malware / networking / recon categories
+RUN pacman -Syu --noconfirm --needed \
+        --ignore impacket,impacket-ba,harpoon,pycrtsh,consolemd \
+        --assume-installed impacket,impacket-ba \
+        --assume-installed wine --assume-installed wine_gecko \
+        --assume-installed python-pytorch --assume-installed nvidia-cudnn \
+        --assume-installed cuda --assume-installed jdk-openjdk \
+        --assume-installed rust \
+        blackarch-keylogger blackarch-malware blackarch-misc blackarch-mobile \
+        blackarch-networking blackarch-nfc blackarch-packer blackarch-proxy \
+        blackarch-radio blackarch-recon blackarch-reocn blackarch-reversing \
+        blackarch-scanner \
+    && pacman -Scc --noconfirm
+
+# Chunk 5: remaining categories
+RUN pacman -Syu --noconfirm --needed \
+        --ignore impacket,impacket-ba,harpoon,pycrtsh,consolemd \
+        --assume-installed impacket,impacket-ba \
+        --assume-installed wine --assume-installed wine_gecko \
+        --assume-installed python-pytorch --assume-installed nvidia-cudnn \
+        --assume-installed cuda --assume-installed jdk-openjdk \
+        --assume-installed rust \
+        blackarch-sniffer blackarch-social blackarch-spoof blackarch-stego \
+        blackarch-threat-model blackarch-tunnel blackarch-unpacker \
+        blackarch-voip blackarch-webapp blackarch-wireless \
+    && pacman -Scc --noconfirm
+
+# Chunk 6: final pass — the master group catches any straggler; --needed makes
+# this near-instant when everything above is already installed
+RUN pacman -Syu --noconfirm --needed \
+        --ignore impacket,impacket-ba,harpoon,pycrtsh,consolemd \
+        --assume-installed impacket,impacket-ba \
+        --assume-installed wine --assume-installed wine_gecko \
+        --assume-installed python-pytorch --assume-installed nvidia-cudnn \
+        --assume-installed cuda --assume-installed jdk-openjdk \
+        --assume-installed rust \
+        blackarch \
+    && pacman -Scc --noconfirm
+
+EXPOSE 5901
+CMD ["/start.sh"]

@@ -1,0 +1,20 @@
+{
+  "name": "podstream",
+  "version": "0.1.0",
+  "description": "Browser-based container desktop streaming (Kasm-style) for Podman",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@novnc/novnc": "^1.5.0",
+    "@xterm/xterm": "^6.0.0",
+    "express": "^4.19.2",
+    "node-pty": "^1.1.0",
+    "ws": "^8.17.1"
+  }
+}
